@@ -1,0 +1,9 @@
+{
+	"_copy_without_render": [
+		"*.github/workflows/tests.yaml"
+	],
+	"python_version": "3.9.4",
+	"service_name": "svc_users",
+	"service_description": "A microservice responsible for creating users.",
+	"service_authors": "The Service Authors"
+}

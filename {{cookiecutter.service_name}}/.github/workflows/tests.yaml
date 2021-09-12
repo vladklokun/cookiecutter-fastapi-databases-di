@@ -1,0 +1,49 @@
+name: Process a Push
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          install: true  # use BuildX by default
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build the Docker test image
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          load: true  # Store built image on the CI runner
+          context: ./
+          file: ./docker/dev.Dockerfile
+          builder: ${{ steps.buildx.outputs.name }}
+          push: false
+          tags: "service_achievements:latest"
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,mode=max,dest=/tmp/.buildx-cache
+
+      - name: Run linters
+        run: docker-compose run --rm lint
+
+      - name: Check code style with Black
+        run: docker-compose run --rm black
+
+      - name: Run tests
+        run: docker-compose run --rm tests
+
+      - name: Check the safety of dependencies
+        run: docker-compose run --rm safety
+
+      - name: Check type safety
+        run: docker-compose run --rm typecheck

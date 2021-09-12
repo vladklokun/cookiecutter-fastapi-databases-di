@@ -1,0 +1,24 @@
+[flake8]
+application-import-names = {{cookiecutter.service_name}},tests
+exclude =
+    alembic/versions
+ignore =
+    E501,
+    # Most of the time, `self` and `cls` does not need to be annotated as per
+    # https://www.python.org/dev/peps/pep-0484/#id34
+    ANN101, ANN102
+import-order-style = google
+max-complexity = 10
+max-line-length = 88
+per-file-ignores =
+    # tests:
+    # D205,D415: tests often use BDD definitions, which can be quite lengthy,
+    # therefore a one-line requirement doesn't make sense
+    tests/*:S101,D205,D415
+    # endpoints
+    # B008: FastAPI uses callable calls inside function arguments for its
+    # internal plumbing, like dependencies, path operators etc. These are
+    # evaluated once and do not pose a security risk
+    src/{{cookiecutter.service_name}}/_endpoints.py:B008
+select = ANN,B,B9,BLK,C,D,DAR,E,F,I,S,W
+docstring-convention = google

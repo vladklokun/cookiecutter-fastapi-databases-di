@@ -1,0 +1,117 @@
+shell: "bash"
+version: "0.0.33"
+
+commands:
+
+  x-use-docker-buildkit: &use-docker-buildkit
+    env:
+      DOCKER_BUILDKIT: 1
+
+  init:
+    description: "Initialize the project after generation from a template."
+    depends:
+      - rebuild
+    cmd: |
+      docker-compose run --rm autogenerate_migration "Initial migration."
+
+  install_deps:
+    description: "Install project dependencies to a local Poetry venv."
+    cmd: "poetry install"
+
+  generate_setup_py:
+    description: |
+      Generate the `setup.py` file.
+
+      This file is needed to install the project in an editable state, until
+      `pip` implements PEP 660.
+    depends:
+      - install_deps
+    # `poetry2setup` generates a file with weird formatting, fix it with
+    # Black
+    cmd: |
+      poetry run poetry2setup > setup.py
+      poetry run black setup.py
+
+  export_poetry_requirements:
+    description: "Export Poetry requirements to `requirements.txt`"
+    options: |
+      Usage:
+        lets export_poetry_requirements [--no-dev]
+
+      Options:
+        --no-dev  Do not export development dependencies.
+
+    cmd: |
+      DEV_OPTION="--dev"
+      if [[ -n ${LETSOPT_NO_DEV} ]]; then
+          DEV_OPTION=""
+      fi
+      poetry export $DEV_OPTION -f "requirements.txt" -o "requirements/full.txt"
+
+  generate_requirements:
+    description: "Render requirements."
+    depends:
+      - export_poetry_requirements
+      - generate_setup_py
+
+  rebuild:
+    <<: *use-docker-buildkit
+    description: "Rebuild the project."
+    depends:
+      - generate_requirements
+    cmd: |
+      docker-compose down -v
+      docker-compose build
+
+  test:
+    <<: *use-docker-buildkit
+    description: "Test the project."
+    cmd: |
+      docker-compose run --rm tests
+
+  safety:
+    <<: *use-docker-buildkit
+    description: "Check the safety of the project dependencies."
+    cmd: |
+      docker-compose run --rm safety
+
+  lint:
+    <<: *use-docker-buildkit
+    description: "Lint the project."
+    cmd: |
+      docker-compose run --rm lint
+
+  black:
+    <<: *use-docker-buildkit
+    description: "Check project formatting with Black."
+    cmd: |
+      docker-compose run --rm black
+
+  typecheck:
+    <<: *use-docker-buildkit
+    description: "Typecheck the project."
+    cmd: |
+      docker-compose run --rm typecheck
+
+  run_pipeline:
+    <<: *use-docker-buildkit
+    description: "Run the checks performed by the CI pipeline locally."
+    depends:
+      - rebuild
+      - lint
+      - black
+      - test
+      - typecheck
+      - safety
+
+  autogenerate_migration:
+    <<: *use-docker-buildkit
+    description: "Make Alembic autogenerate a migration."
+    options: |
+      Usage:
+        lets autogenerate_migration --message=<msg>
+
+      Options:
+        --message=<msg>  Migration message.
+    cmd: |
+      docker-compose run --rm autogenerate_migration "${LETSOPT_MESSAGE}"
